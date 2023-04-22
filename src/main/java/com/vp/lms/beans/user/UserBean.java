@@ -1,5 +1,6 @@
 package com.vp.lms.beans.user;
 
+import com.vp.lms.beans.property.InstituteBean;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -12,6 +13,7 @@ import java.util.Date;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
+@Table(name = "user")
 public class UserBean implements Serializable {
 
     @Id
@@ -24,15 +26,22 @@ public class UserBean implements Serializable {
     private String phone;
     private String email;
     private String password;
-    private boolean accountIsActive;
+    private boolean accountIsDeactivated;
     private boolean accountIsExpired;
     private String profileImageUrl;
     private Date lastLoginDate;
     private Date lastLoginDateDisplay;
     private Date joinDate;
     @OneToOne
-    @Column(name = "userRole")
+    @JoinColumn(name = "userRole")
     private UserRoleBean userRoleBean;
+    @OneToOne
+    @JoinColumn(name = "institute")
+    private InstituteBean instituteBean;
+    private String jwtType;
+
+    @Transient
+    private String token;
 
     public UserBean(Integer id) {
         this.id = id;

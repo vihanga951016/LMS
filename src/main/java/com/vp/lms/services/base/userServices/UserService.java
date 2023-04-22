@@ -10,9 +10,13 @@ import java.util.Date;
 
 public interface UserService {
 
+    ResponseEntity userLogin(String username, String password, HttpServletRequest request);
+
     ResponseEntity register(String name, Date dob, String nic, String address, String phone,
                             String email, String password, MultipartFile profileImageUrl, Date lastLogin,
-                            Date lastLoginDateDisplay, Date joinDate, String role,
+                            Date lastLoginDateDisplay, Date joinDate, String role, String instituteName,
+                            String instituteAddress, Integer subscription, String instituteMail, String contact,
                             HttpServletRequest request) throws IOException;
+
     ResponseEntity update(UserBean userBean, HttpServletRequest request);
 }
