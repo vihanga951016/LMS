@@ -2,6 +2,7 @@ package com.vp.lms.services.base.userServices;
 
 import com.vp.lms.beans.user.UserBean;
 import com.vp.lms.beans.user.requests.UserLoginBean;
+import com.vp.lms.exceptions.AuthorizationException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -27,6 +28,10 @@ public interface UserService {
 //                            String email, String password, MultipartFile profileImageUrl, String instituteName,
 //                            Integer subscription, String instituteMail,
 //                            HttpServletRequest request) throws IOException;
+
+    ResponseEntity addUser(String name, String nic, String address, String phone,
+                           String email, String password, MultipartFile profileImageUrl,
+                           Integer instituteId, HttpServletRequest request) throws AuthorizationException;
 
     ResponseEntity update(UserBean userBean, HttpServletRequest request);
 }

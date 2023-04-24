@@ -2,6 +2,7 @@ package com.vp.lms.controllers.base.userControllers;
 
 import com.vp.lms.beans.user.UserBean;
 import com.vp.lms.beans.user.requests.UserLoginBean;
+import com.vp.lms.exceptions.AuthorizationException;
 import com.vp.lms.services.base.userServices.UserService;
 import lombok.AllArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -40,5 +41,15 @@ public class UserController {
                                    HttpServletRequest request) throws IOException {
         return userService.register(name, nic, address, phone, email, password, profileImageUrl,
                  instituteName, instituteAddress, subscription, instituteMail, instituteContact, request);
+    }
+
+    @PostMapping("/add")
+    public ResponseEntity addUser(String name, String nic, String address, String phone, String email,
+                                  String password, @RequestParam(value = "profileImageUrl", required = false)
+                                          MultipartFile profileImageUrl, Integer instituteId,
+                                  HttpServletRequest request) throws AuthorizationException {
+        return userService.addUser(name, nic, address, phone, email, password,
+                profileImageUrl, instituteId, request);
+
     }
 }

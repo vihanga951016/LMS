@@ -11,10 +11,7 @@ import java.util.List;
 
 @Repository
 @Transactional
-public interface UserAuthoritiesRepository extends ReadOnlyRepository<UserAuthoritiesBean, Integer> {
-
-    @Query("SELECT ua FROM UserAuthoritiesBean ua WHERE ua.id=:id AND ua.deleted = false")
-    UserAuthoritiesBean getAuthorityById(@Param("id") Integer id);
+public interface UserAuthoritiesRepository extends ReadOnlyRepository<UserAuthoritiesBean, String> {
 
     @Query("SELECT ua FROM UserAuthoritiesBean ua WHERE ua.authority=:name AND ua.deleted = false")
     UserAuthoritiesBean getAuthorityByName(@Param("name") Integer name);

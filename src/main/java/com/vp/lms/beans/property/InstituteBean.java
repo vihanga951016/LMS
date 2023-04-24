@@ -24,6 +24,10 @@ public class InstituteBean {
     private boolean deactivated;
     private boolean notAvailable;
 
+    public InstituteBean(Integer id) {
+        this.id = id;
+    }
+
     public InstituteBean(Integer id, String name) {
         this.id = id;
         this.name = name;

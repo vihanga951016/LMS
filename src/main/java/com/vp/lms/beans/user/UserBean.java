@@ -32,9 +32,7 @@ public class UserBean implements Serializable {
     private Date lastLoginDate;
     private Date lastLoginDateDisplay;
     private Date joinDate;
-    @OneToOne
-    @JoinColumn(name = "userRole")
-    private UserRoleBean userRoleBean;
+    private String userRole;
     @OneToOne
     @JoinColumn(name = "institute")
     private InstituteBean instituteBean;

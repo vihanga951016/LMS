@@ -1,5 +1,6 @@
 package com.vp.lms.beans.user;
 
+import com.vp.lms.beans.property.InstituteBean;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -22,4 +23,7 @@ public class UserRoleAuthoritiesBean {
     @OneToOne
     @JoinColumn(name = "authorities")
     private UserAuthoritiesBean authorities;
+    @OneToOne
+    @JoinColumn(name = "institute")
+    private InstituteBean institute;
 }

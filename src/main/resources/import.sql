@@ -3,5 +3,7 @@ insert into authorities (authority, deleted, disabled) values ("add_user", false
 
 insert into user_role (id, deleted, disabled) values ("coordinator", false, false);
 
-insert into user_role_authorities (id, authorities, role) values (1, 1, "coordinator");
-insert into user_role_authorities (id, authorities, role) values (2, 2, "coordinator");
+insert into user_role_authorities (id, authorities, role, institute)
+values (1, "register", "coordinator", 1);
+insert into user_role_authorities (id, authorities, role, institute)
+values (2, "add_user", "coordinator", 1);

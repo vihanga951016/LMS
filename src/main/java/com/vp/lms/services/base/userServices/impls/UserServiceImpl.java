@@ -2,6 +2,8 @@ package com.vp.lms.services.base.userServices.impls;
 
 import com.vp.lms.beans.property.InstituteBean;
 import com.vp.lms.beans.user.UserBean;
+import com.vp.lms.beans.user.UserRoleAuthoritiesBean;
+import com.vp.lms.beans.user.UserRoleBean;
 import com.vp.lms.beans.user.requests.UserLoginBean;
 import com.vp.lms.common.ApplicationConstant;
 import com.vp.lms.common.FileConstant;
@@ -9,11 +11,17 @@ import com.vp.lms.common.enums.JwtTypes;
 import com.vp.lms.common.http.bean.HttpResponse;
 import com.vp.lms.common.http.locale.LocaleService;
 import com.vp.lms.common.security.HashUtils;
+import com.vp.lms.exceptions.AuthorizationException;
+import com.vp.lms.exceptions.LMSExceptions;
 import com.vp.lms.repository.repositories.propertiesRepos.InstituteRepository;
 import com.vp.lms.repository.repositories.userRepos.UserRepository;
+import com.vp.lms.repository.repositories.userRepos.UserRoleAuthoritiesRepository;
 import com.vp.lms.repository.repositories.userRepos.UserRoleRepository;
 import com.vp.lms.services.base.userServices.UserService;
+import com.vp.lms.services.common.security.securityImpls.JwtUserDetailsService;
 import com.vp.lms.services.common.security.utils.JwtTokenUtil;
+import io.jsonwebtoken.Claims;
+import lombok.RequiredArgsConstructor;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,6 +41,7 @@ import java.util.*;
 
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 
+@RequiredArgsConstructor
 @Service
 @SuppressWarnings("Duplicates")
 public class UserServiceImpl implements UserService {
@@ -44,19 +53,9 @@ public class UserServiceImpl implements UserService {
 
     private final UserRepository userRepository;
     private final UserRoleRepository userRoleRepository;
+    private final UserRoleAuthoritiesRepository userRoleAuthoritiesRepository;
     private final InstituteRepository instituteRepository;
-
-    @Autowired
-    public UserServiceImpl(LocaleService localeService,
-                           JwtTokenUtil jwtTokenUtil, UserRepository userRepository,
-                           UserRoleRepository userRoleRepository,
-                           InstituteRepository instituteRepository) {
-        this.localeService = localeService;
-        this.jwtTokenUtil = jwtTokenUtil;
-        this.userRepository = userRepository;
-        this.userRoleRepository = userRoleRepository;
-        this.instituteRepository = instituteRepository;
-    }
+    private final JwtUserDetailsService jwtUserDetailsService;
 
     @Override
     public ResponseEntity userLogin(UserLoginBean userLoginBean, HttpServletRequest request) {
@@ -89,7 +88,7 @@ public class UserServiceImpl implements UserService {
 
         return ResponseEntity.ok().body(new HttpResponse<>().responseOk(user));
     }
-    
+
     @Override
     public ResponseEntity register(String name, String nic, String address, String phone,
                               String email, String password, MultipartFile profileImageUrl, String instituteName,
@@ -99,8 +98,6 @@ public class UserServiceImpl implements UserService {
         UserBean existingUserWithEmail = userRepository.getUserByEmail(email);
 
         if(existingUserWithEmail != null) {
-            LOGGER.info("user.email.exist");
-            LOGGER.info("Request: "+ request);
             return ResponseEntity.status(HttpStatus.CONFLICT).body(new HttpResponse<>()
                     .responseFail(localeService.getMessage("user.email.exist", request)));
         }
@@ -146,7 +143,7 @@ public class UserServiceImpl implements UserService {
         newUser.setJoinDate(new Date());
         newUser.setAccountIsDeactivated(false);
         newUser.setAccountIsExpired(false);
-        newUser.setUserRoleBean(userRoleRepository.getRoleByName("head_master"));
+        newUser.setUserRole(userRoleRepository.getRoleByName("coordinator").getId());
         newUser.setInstituteBean(
                 new InstituteBean(newlyRegisteredInstitute.getId(),
                         newlyRegisteredInstitute.getName()));
@@ -155,6 +152,74 @@ public class UserServiceImpl implements UserService {
         userRepository.save(newUser);
 
         return ResponseEntity.ok().body(new HttpResponse<>().responseOk(newUser));
+    }
+
+    @Override
+    public ResponseEntity addUser(String name, String nic, String address, String phone,
+                                  String email, String password, MultipartFile profileImageUrl,
+                                  Integer instituteId, HttpServletRequest request) {
+        try {
+            Claims claims = jwtUserDetailsService.authenticate(request, JwtTypes.SUPER_ADMIN);
+
+            Integer claimedInstituteId = claims.get(ApplicationConstant.JWT_INSTITUTE_ID, Integer.class);
+            if(claimedInstituteId == null || !claimedInstituteId.equals(instituteId)){
+                LOGGER.error("Forbidden Access, institute id >> " + instituteId +
+                        " | jwt >> " + claimedInstituteId);
+                return ResponseEntity.status(HttpStatus.CONFLICT).body(new HttpResponse<>()
+                        .responseFail(localeService.getMessage("user.forbidden", request)));
+            }
+
+            String claimedRole = claims.get(ApplicationConstant.JWT_ROLE, String.class);
+
+            UserRoleAuthoritiesBean roleAuthorities =userRoleAuthoritiesRepository
+                    .getEntityByRole(claimedRole, "add_user");
+
+            if(roleAuthorities == null) {
+                return ResponseEntity.status(HttpStatus.CONFLICT).body(new HttpResponse<>()
+                        .responseFail(localeService.getMessage("no.permission", request)));
+            }
+
+            UserBean existingUserWithEmail = userRepository.getUserByEmail(email);
+
+            if(existingUserWithEmail != null) {
+                return ResponseEntity.status(HttpStatus.CONFLICT).body(new HttpResponse<>()
+                        .responseFail(localeService.getMessage("user.email.exist", request)));
+            }
+
+            UserBean existingUserWithNic = userRepository.getUserByNIC(nic);
+
+            if(existingUserWithNic != null) {
+                return ResponseEntity.status(HttpStatus.CONFLICT).body(new HttpResponse<>()
+                        .responseFail(localeService.getMessage("user.nic.exist", request)));
+            }
+
+            UserBean newUser = new UserBean();
+
+            newUser.setName(name);
+//            newUser.setDob();
+            newUser.setNic(nic);
+            newUser.setAddress(address);
+            newUser.setPhone(phone);
+            newUser.setEmail(email);
+            newUser.setPassword(HashUtils.hash(password));
+            newUser.setProfileImageUrl(saveProfileImage(nic, profileImageUrl));
+            newUser.setLastLoginDate(new Date());
+            newUser.setLastLoginDateDisplay(new Date());
+            newUser.setJoinDate(new Date());
+            newUser.setAccountIsDeactivated(false);
+            newUser.setAccountIsExpired(false);
+            newUser.setInstituteBean(new InstituteBean(instituteId));
+            newUser.setJwtType(JwtTypes.USER.name());
+
+            userRepository.save(newUser);
+
+            return ResponseEntity.ok().body(new HttpResponse<>().responseOk(newUser));
+
+        } catch (LMSExceptions e) {
+            LOGGER.error(e.getMessage(), e);
+            return ResponseEntity.internalServerError()
+                    .body(new HttpResponse<>().responseFail(e.getMessage()));
+        }
     }
 
     @Override
@@ -189,6 +254,7 @@ public class UserServiceImpl implements UserService {
 
         claims.put(ApplicationConstant.JWT_USER_ID, userBean.getId());
         claims.put(ApplicationConstant.JWT_INSTITUTE_ID, userBean.getInstituteBean().getId());
+        claims.put(ApplicationConstant.JWT_ROLE, userBean.getUserRole());
 
         return jwtTokenUtil.generateTokenWithExp
                 (new User(userType, userLoginBean.getPassword(), new ArrayList<>()), expireTime, claims);
