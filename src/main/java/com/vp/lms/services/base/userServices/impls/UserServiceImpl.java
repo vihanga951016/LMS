@@ -2,6 +2,8 @@ package com.vp.lms.services.base.userServices.impls;
 
 import com.vp.lms.beans.property.InstituteBean;
 import com.vp.lms.beans.user.UserBean;
+import com.vp.lms.beans.user.requests.UserLoginBean;
+import com.vp.lms.common.ApplicationConstant;
 import com.vp.lms.common.FileConstant;
 import com.vp.lms.common.enums.JwtTypes;
 import com.vp.lms.common.http.bean.HttpResponse;
@@ -11,12 +13,13 @@ import com.vp.lms.repository.repositories.propertiesRepos.InstituteRepository;
 import com.vp.lms.repository.repositories.userRepos.UserRepository;
 import com.vp.lms.repository.repositories.userRepos.UserRoleRepository;
 import com.vp.lms.services.base.userServices.UserService;
-import com.vp.lms.services.common.security.AuthenticationManagerService;
+import com.vp.lms.services.common.security.utils.JwtTokenUtil;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.userdetails.User;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
@@ -26,10 +29,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Calendar;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 
@@ -40,7 +40,7 @@ public class UserServiceImpl implements UserService {
     private static Logger LOGGER = LogManager.getLogger(UserServiceImpl.class);
 
     private final LocaleService localeService;
-    private final AuthenticationManagerService authenticationManagerService;
+    private final JwtTokenUtil jwtTokenUtil;
 
     private final UserRepository userRepository;
     private final UserRoleRepository userRoleRepository;
@@ -48,31 +48,28 @@ public class UserServiceImpl implements UserService {
 
     @Autowired
     public UserServiceImpl(LocaleService localeService,
-                           AuthenticationManagerService authenticationManagerService,
-                           UserRepository userRepository,
+                           JwtTokenUtil jwtTokenUtil, UserRepository userRepository,
                            UserRoleRepository userRoleRepository,
                            InstituteRepository instituteRepository) {
         this.localeService = localeService;
-        this.authenticationManagerService = authenticationManagerService;
+        this.jwtTokenUtil = jwtTokenUtil;
         this.userRepository = userRepository;
         this.userRoleRepository = userRoleRepository;
         this.instituteRepository = instituteRepository;
     }
 
     @Override
-    public ResponseEntity userLogin(String email, String password, HttpServletRequest request) {
-        authenticationManagerService.authentication(email, password);
-        UserBean user = userRepository.getUserEntityByEmail(email);
-//        UserPrinciplesBean<UserBean> userPrinciples = new UserPrinciplesBean<>(user);
+    public ResponseEntity userLogin(UserLoginBean userLoginBean, HttpServletRequest request) {
+        UserBean user = userRepository.getUserEntityByEmail(userLoginBean.getEmail());
 
         if(user == null) {
             return ResponseEntity.status(HttpStatus.CONFLICT).body(new HttpResponse<>()
                     .responseFail(localeService.getMessage("user.not.found.email", request)));
         }
 
-        if(HashUtils.checkEncrypted(password, user.getPassword())){
+        if(HashUtils.checkEncrypted(userLoginBean.getPassword(), user.getPassword())){
             LOGGER.info("Password hash matched | " + user.getId() + " | name |"
-                    + user.getName() +" | username |" + email);
+                    + user.getName() +" | username |" + userLoginBean.getEmail());
         } else {
             return ResponseEntity.status(HttpStatus.CONFLICT).body(new HttpResponse<>()
                     .responseFail(localeService.getMessage("user.password.not.match", request)));
@@ -88,21 +85,22 @@ public class UserServiceImpl implements UserService {
                     .responseFail(localeService.getMessage("user.account.expired", request)));
         }
 
-        //TODO - set token to user bean.
+        user.setToken(createUserLoginToken(user, userLoginBean));
 
         return ResponseEntity.ok().body(new HttpResponse<>().responseOk(user));
     }
-
+    
     @Override
-    public ResponseEntity register(String name, Date dob, String nic, String address, String phone,
-                              String email, String password, MultipartFile profileImageUrl, Date lastLogin,
-                              Date lastLoginDateDisplay, Date joinDate, String role, String instituteName,
+    public ResponseEntity register(String name, String nic, String address, String phone,
+                              String email, String password, MultipartFile profileImageUrl, String instituteName,
                               String instituteAddress, Integer subscription, String instituteMail,
                                    String instituteContact, HttpServletRequest request) throws IOException {
 
         UserBean existingUserWithEmail = userRepository.getUserByEmail(email);
 
         if(existingUserWithEmail != null) {
+            LOGGER.info("user.email.exist");
+            LOGGER.info("Request: "+ request);
             return ResponseEntity.status(HttpStatus.CONFLICT).body(new HttpResponse<>()
                     .responseFail(localeService.getMessage("user.email.exist", request)));
         }
@@ -127,7 +125,7 @@ public class UserServiceImpl implements UserService {
         newInstitute.setAddress(instituteName);
         newInstitute.setSubscription(subscription);
         newInstitute.setEmail(instituteMail);
-        newInstitute.setContact(instituteContact);
+        newInstitute.setContact("1234567890");
         newInstitute.setDeactivated(false);
         newInstitute.setNotAvailable(false);
 
@@ -136,19 +134,19 @@ public class UserServiceImpl implements UserService {
         UserBean newUser = new UserBean();
 
         newUser.setName(name);
-        newUser.setDob(dob);
+        newUser.setDob(new Date());
         newUser.setNic(nic);
-        newUser.setAddress(address);
-        newUser.setPhone(phone);
+        newUser.setAddress("");
+        newUser.setPhone("");
         newUser.setEmail(email);
         newUser.setPassword(HashUtils.hash(password));
         newUser.setProfileImageUrl(saveProfileImage(nic, profileImageUrl));
-        newUser.setLastLoginDate(lastLogin);
-        newUser.setLastLoginDateDisplay(lastLoginDateDisplay);
-        newUser.setJoinDate(joinDate);
+        newUser.setLastLoginDate(new Date());
+        newUser.setLastLoginDateDisplay(new Date());
+        newUser.setJoinDate(new Date());
         newUser.setAccountIsDeactivated(false);
         newUser.setAccountIsExpired(false);
-        newUser.setUserRoleBean(userRoleRepository.getRoleByName(role));
+        newUser.setUserRoleBean(userRoleRepository.getRoleByName("head_master"));
         newUser.setInstituteBean(
                 new InstituteBean(newlyRegisteredInstitute.getId(),
                         newlyRegisteredInstitute.getName()));
@@ -164,7 +162,7 @@ public class UserServiceImpl implements UserService {
         return null;
     }
 
-    private String createUserLoginToken(UserBean userBean){
+    private String createUserLoginToken(UserBean userBean, UserLoginBean userLoginBean){
         Map<String, Object> claims = new HashMap<>();
 
         Calendar calendar = Calendar.getInstance();
@@ -177,30 +175,50 @@ public class UserServiceImpl implements UserService {
 
         String userType = null;
 
+        LOGGER.info(userBean.getJwtType() + " is trying to login");
+
         if (userBean.getJwtType().equals(JwtTypes.SUPER_ADMIN.name())){
             userType = JwtTypes.SUPER_ADMIN.name();
+        } else if(userBean.getJwtType().equals(JwtTypes.ADMIN.name())) {
+            userType = JwtTypes.ADMIN.name();
+        } else if(userBean.getJwtType().equals(JwtTypes.USER.name())) {
+            userType = JwtTypes.USER.name();
+        } else {
+            LOGGER.error("User type is not defined");
         }
 
-        return null;
+        claims.put(ApplicationConstant.JWT_USER_ID, userBean.getId());
+        claims.put(ApplicationConstant.JWT_INSTITUTE_ID, userBean.getInstituteBean().getId());
+
+        return jwtTokenUtil.generateTokenWithExp
+                (new User(userType, userLoginBean.getPassword(), new ArrayList<>()), expireTime, claims);
     }
 
-    private String saveProfileImage(String nic, MultipartFile profileImage) throws IOException {
-        if(profileImage != null) {
-            Path folder = Paths.get(FileConstant.USER_FOLDER + nic).toAbsolutePath().normalize();
-            if(!Files.exists(folder)) {
-                Files.createDirectories(folder);
-                LOGGER.info(FileConstant.DIRECTORY_CREATED + folder);
+    private String saveProfileImage(String nic, MultipartFile profileImage) {
+        try {
+            if(profileImage != null) {
+                Path folder = Paths.get(FileConstant.USER_FOLDER + nic).toAbsolutePath().normalize();
+                if(!Files.exists(folder)) {
+                    Files.createDirectories(folder);
+                    LOGGER.info(FileConstant.DIRECTORY_CREATED + folder);
+                }
+
+                LOGGER.info("Existing path: "+ Paths.get(folder + nic + "." + FileConstant.JPG_EXTENSION ));
+                Files.deleteIfExists(Paths.get(folder + nic + "." + FileConstant.JPG_EXTENSION ));
+                LOGGER.info("Deleted");
+
+                Files.copy(profileImage.getInputStream(),folder.resolve(nic + "." + FileConstant.JPG_EXTENSION)
+                        , REPLACE_EXISTING);
+
+                return setProfileImageUrl(nic);
+            } else {
+                return null;
             }
-
-            Files.deleteIfExists(Paths.get(folder + nic + "." + FileConstant.JPG_EXTENSION ));
-
-            Files.copy(profileImage.getInputStream(),folder.resolve(nic + "." + FileConstant.JPG_EXTENSION)
-                    , REPLACE_EXISTING);
-
-            return setProfileImageUrl(nic);
-        } else {
-            return null;
+        } catch (Exception e){
+            LOGGER.error(e);
         }
+
+        return "error";
     }
 
     private String setProfileImageUrl(String nic){
