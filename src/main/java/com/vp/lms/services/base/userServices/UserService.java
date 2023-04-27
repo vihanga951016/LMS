@@ -15,23 +15,14 @@ public interface UserService {
 
     ResponseEntity register(String name, String nic, String address, String phone,
                             String email, String password, MultipartFile profileImageUrl, String instituteName,
-                            String instituteAddress, Integer subscription, String instituteMail, String contact,
-                            HttpServletRequest request) throws IOException;
+                            String instituteShortName, String instituteAddress, Integer subscription, String instituteMail,
+                            String contact, HttpServletRequest request) throws IOException;
 
-//    String name, Date dob, String nic, String address, String phone,
-//    String email, String password, MultipartFile profileImageUrl, Date lastLogin,
-//    Date lastLoginDateDisplay, Date joinDate, String role, String instituteName,
-//    String instituteAddress, Integer subscription, String instituteMail, String contact,
-//    HttpServletRequest request
-
-//    ResponseEntity register(String name, String nic,
-//                            String email, String password, MultipartFile profileImageUrl, String instituteName,
-//                            Integer subscription, String instituteMail,
-//                            HttpServletRequest request) throws IOException;
 
     ResponseEntity addUser(String name, String nic, String address, String phone,
                            String email, String password, MultipartFile profileImageUrl,
                            Integer instituteId, HttpServletRequest request) throws AuthorizationException;
 
-    ResponseEntity update(UserBean userBean, HttpServletRequest request);
+    ResponseEntity update(Integer id, String name, String address, String phone,
+                          MultipartFile profileImageUrl,HttpServletRequest request);
 }

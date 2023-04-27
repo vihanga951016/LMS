@@ -17,6 +17,7 @@ public class InstituteBean {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
     private String name;
+    private String instituteShortName;
     private String address;
     private Integer subscription;
     private String email;

@@ -34,7 +34,7 @@ public class UserBean implements Serializable {
     private Date joinDate;
     private String userRole;
     @OneToOne
-    @JoinColumn(name = "institute")
+    @JoinColumn(name = "institute", nullable = false)
     private InstituteBean instituteBean;
     private String jwtType;
 

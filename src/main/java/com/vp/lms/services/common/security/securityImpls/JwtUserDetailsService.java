@@ -20,13 +20,17 @@ import java.util.ArrayList;
 import java.util.Arrays;
 
 @Service
-@RequiredArgsConstructor
 public class JwtUserDetailsService implements UserDetailsService {
 
     private static Logger logger = LogManager.getLogger(JwtUserDetailsService.class);
 
     private final JwtTokenUtil tokenUtil;
     private final LocaleService localeService;
+
+    public JwtUserDetailsService(JwtTokenUtil tokenUtil, LocaleService localeService) {
+        this.tokenUtil = tokenUtil;
+        this.localeService = localeService;
+    }
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {

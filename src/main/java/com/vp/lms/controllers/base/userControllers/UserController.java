@@ -1,6 +1,5 @@
 package com.vp.lms.controllers.base.userControllers;
 
-import com.vp.lms.beans.user.UserBean;
 import com.vp.lms.beans.user.requests.UserLoginBean;
 import com.vp.lms.exceptions.AuthorizationException;
 import com.vp.lms.services.base.userServices.UserService;
@@ -11,7 +10,6 @@ import org.springframework.web.multipart.MultipartFile;
 
 import javax.servlet.http.HttpServletRequest;
 import java.io.IOException;
-import java.util.Date;
 
 @RestController
 @RequestMapping("/user")
@@ -34,13 +32,14 @@ public class UserController {
                                    @RequestParam("password")String password,
                                    @RequestParam(value = "profileImageUrl", required = false) MultipartFile profileImageUrl,
                                    @RequestParam("instituteName")String instituteName,
+                                   String instituteShortName,
                                    String instituteAddress,
                                    @RequestParam("subscription")Integer subscription,
                                    @RequestParam("instituteMail")String instituteMail,
                                    String instituteContact,
                                    HttpServletRequest request) throws IOException {
         return userService.register(name, nic, address, phone, email, password, profileImageUrl,
-                 instituteName, instituteAddress, subscription, instituteMail, instituteContact, request);
+                 instituteName, instituteShortName , instituteAddress, subscription, instituteMail, instituteContact, request);
     }
 
     @PostMapping("/add")
@@ -51,5 +50,11 @@ public class UserController {
         return userService.addUser(name, nic, address, phone, email, password,
                 profileImageUrl, instituteId, request);
 
+    }
+
+    @PostMapping("/update")
+    public ResponseEntity UpdateUser(Integer id, String name, String address, String phone,@RequestParam(value = "profileImageUrl", required = false)
+                                     MultipartFile profileImageUrl, HttpServletRequest request) throws AuthorizationException {
+        return userService.update(id, name, address, phone, profileImageUrl, request);
     }
 }

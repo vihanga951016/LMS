@@ -3,7 +3,6 @@ package com.vp.lms.services.base.userServices.impls;
 import com.vp.lms.beans.property.InstituteBean;
 import com.vp.lms.beans.user.UserBean;
 import com.vp.lms.beans.user.UserRoleAuthoritiesBean;
-import com.vp.lms.beans.user.UserRoleBean;
 import com.vp.lms.beans.user.requests.UserLoginBean;
 import com.vp.lms.common.ApplicationConstant;
 import com.vp.lms.common.FileConstant;
@@ -11,7 +10,6 @@ import com.vp.lms.common.enums.JwtTypes;
 import com.vp.lms.common.http.bean.HttpResponse;
 import com.vp.lms.common.http.locale.LocaleService;
 import com.vp.lms.common.security.HashUtils;
-import com.vp.lms.exceptions.AuthorizationException;
 import com.vp.lms.exceptions.LMSExceptions;
 import com.vp.lms.repository.repositories.propertiesRepos.InstituteRepository;
 import com.vp.lms.repository.repositories.userRepos.UserRepository;
@@ -24,7 +22,6 @@ import io.jsonwebtoken.Claims;
 import lombok.RequiredArgsConstructor;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.userdetails.User;
@@ -33,7 +30,6 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import javax.servlet.http.HttpServletRequest;
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -92,8 +88,8 @@ public class UserServiceImpl implements UserService {
     @Override
     public ResponseEntity register(String name, String nic, String address, String phone,
                               String email, String password, MultipartFile profileImageUrl, String instituteName,
-                              String instituteAddress, Integer subscription, String instituteMail,
-                                   String instituteContact, HttpServletRequest request) throws IOException {
+                              String instituteShortName, String instituteAddress, Integer subscription,
+                              String instituteMail, String instituteContact, HttpServletRequest request) {
 
         UserBean existingUserWithEmail = userRepository.getUserByEmail(email);
 
@@ -119,6 +115,7 @@ public class UserServiceImpl implements UserService {
         InstituteBean newInstitute = new InstituteBean();
 
         newInstitute.setName(instituteName);
+        newInstitute.setName(instituteShortName);
         newInstitute.setAddress(instituteName);
         newInstitute.setSubscription(subscription);
         newInstitute.setEmail(instituteMail);
@@ -223,8 +220,70 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public ResponseEntity update(UserBean userBean, HttpServletRequest request) {
-        return null;
+    public ResponseEntity update(Integer id, String name, String address, String phone,
+                                 MultipartFile profileImageUrl,HttpServletRequest request) {
+        try {
+
+            UserBean userBean = userRepository.getUserEntityById(id);
+
+            if(userBean == null) {
+                return ResponseEntity.status(HttpStatus.CONFLICT).body(new HttpResponse<>()
+                        .responseFail(localeService.getMessage("user.not.found", request)));
+            }
+
+            Claims claims = jwtUserDetailsService.authenticate(request, JwtTypes.SUPER_ADMIN);
+
+
+            Integer claimedInstituteId = claims.get(ApplicationConstant.JWT_INSTITUTE_ID, Integer.class);
+            if(claimedInstituteId == null || !claimedInstituteId.equals(userBean.getInstituteBean().getId())){
+                LOGGER.error("Forbidden Access, institute id >> " + userBean.getInstituteBean().getId() +
+                        " | jwt >> " + claimedInstituteId);
+                return ResponseEntity.status(HttpStatus.CONFLICT).body(new HttpResponse<>()
+                        .responseFail(localeService.getMessage("user.forbidden", request)));
+            }
+
+            String claimedRole = claims.get(ApplicationConstant.JWT_ROLE, String.class);
+
+            UserRoleAuthoritiesBean roleAuthorities =userRoleAuthoritiesRepository
+                    .getEntityByRole(claimedRole, "update_user");
+
+            if(roleAuthorities == null) {
+                return ResponseEntity.status(HttpStatus.CONFLICT).body(new HttpResponse<>()
+                        .responseFail(localeService.getMessage("no.permission", request)));
+            }
+
+            UserBean updatedBean = userRepository.save(
+                    updateBean(userBean, name, address, phone, profileImageUrl));
+
+            return ResponseEntity.ok().body(new HttpResponse<>().responseOk(updatedBean));
+
+        } catch (LMSExceptions e) {
+            LOGGER.error(e.getMessage(), e);
+            return ResponseEntity.internalServerError()
+                    .body(new HttpResponse<>().responseFail(e.getMessage()));
+        }
+    }
+
+    private UserBean updateBean(UserBean userBean, String name, String address, String phone,
+                                MultipartFile profileImageUrl){
+
+        if(!userBean.getName().equals(name) && name != null) {
+            userBean.setName(name);
+        }
+
+        if(!userBean.getAddress().equals(address) && address != null) {
+            userBean.setAddress(address);
+        }
+
+        if(!userBean.getPhone().equals(phone) && phone != null) {
+            userBean.setPhone(phone);
+        }
+
+        if(profileImageUrl != null) {
+            userBean.setProfileImageUrl(saveProfileImage(userBean.getNic(), profileImageUrl));
+        }
+
+        return userBean;
     }
 
     private String createUserLoginToken(UserBean userBean, UserLoginBean userLoginBean){
@@ -270,7 +329,7 @@ public class UserServiceImpl implements UserService {
                 }
 
                 LOGGER.info("Existing path: "+ Paths.get(folder + nic + "." + FileConstant.JPG_EXTENSION ));
-                Files.deleteIfExists(Paths.get(folder + nic + "." + FileConstant.JPG_EXTENSION ));
+                //Files.deleteIfExists(Paths.get(folder + nic + "." + FileConstant.JPG_EXTENSION ));
                 LOGGER.info("Deleted");
 
                 Files.copy(profileImage.getInputStream(),folder.resolve(nic + "." + FileConstant.JPG_EXTENSION)
