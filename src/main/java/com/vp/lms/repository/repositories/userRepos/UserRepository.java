@@ -7,6 +7,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import javax.transaction.Transactional;
+import java.util.List;
 
 @Repository
 @Transactional
@@ -26,4 +27,7 @@ public interface UserRepository extends ReadOnlyRepository<UserBean, Integer> {
 
     @Query("SELECT new UserBean(u.id) FROM UserBean u WHERE u.nic=:nic AND u.accountIsExpired = false")
     UserBean getUserByNIC(@Param("nic") String nic);
+
+    @Query("SELECT u FROM UserBean u WHERE u.instituteBean.id=:iId")
+    List<UserBean> getAllUsersByInstitute(@Param("iId") Integer id);
 }

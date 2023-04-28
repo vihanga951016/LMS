@@ -25,4 +25,8 @@ public interface UserService {
 
     ResponseEntity update(Integer id, String name, String address, String phone,
                           MultipartFile profileImageUrl,HttpServletRequest request);
+
+    ResponseEntity getAllUsersByInstitute(Integer instituteId, HttpServletRequest request);
+
+    ResponseEntity deleteUser(Integer id, HttpServletRequest request);
 }

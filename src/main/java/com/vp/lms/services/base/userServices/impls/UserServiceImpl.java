@@ -264,6 +264,84 @@ public class UserServiceImpl implements UserService {
         }
     }
 
+    @Override
+    public ResponseEntity getAllUsersByInstitute(Integer instituteId, HttpServletRequest request) {
+        try{
+            Claims claims = jwtUserDetailsService.authenticate(request, JwtTypes.SUPER_ADMIN);
+
+            Integer claimedInstituteId = claims.get(ApplicationConstant.JWT_INSTITUTE_ID, Integer.class);
+            if(claimedInstituteId == null || !claimedInstituteId.equals(instituteId)){
+                LOGGER.error("Forbidden Access, institute id >> " + instituteId +
+                        " | jwt >> " + claimedInstituteId);
+                return ResponseEntity.status(HttpStatus.CONFLICT).body(new HttpResponse<>()
+                        .responseFail(localeService.getMessage("user.forbidden", request)));
+            }
+
+            String claimedRole = claims.get(ApplicationConstant.JWT_ROLE, String.class);
+
+            UserRoleAuthoritiesBean roleAuthorities =userRoleAuthoritiesRepository
+                    .getEntityByRole(claimedRole, "get_all_users");
+
+            if(roleAuthorities == null) {
+                return ResponseEntity.status(HttpStatus.CONFLICT).body(new HttpResponse<>()
+                        .responseFail(localeService.getMessage("no.permission", request)));
+            }
+
+            return ResponseEntity.ok().body(new HttpResponse<>()
+                    .responseOk(userRepository.getAllUsersByInstitute(instituteId)));
+
+        } catch (LMSExceptions e) {
+            LOGGER.error(e.getMessage(), e);
+            return ResponseEntity.internalServerError()
+                    .body(new HttpResponse<>().responseFail(e.getMessage()));
+        }
+    }
+
+    @Override
+    public ResponseEntity deleteUser(Integer id, HttpServletRequest request) {
+        try{
+
+            UserBean userBean = userRepository.getUserEntityById(id);
+
+            if(userBean == null) {
+                return ResponseEntity.status(HttpStatus.CONFLICT).body(new HttpResponse<>()
+                        .responseFail(localeService.getMessage("user.not.found", request)));
+            }
+
+            Integer instituteId = userBean.getInstituteBean().getId();
+
+            Claims claims = jwtUserDetailsService.authenticate(request, JwtTypes.SUPER_ADMIN);
+
+            Integer claimedInstituteId = claims.get(ApplicationConstant.JWT_INSTITUTE_ID, Integer.class);
+            if(claimedInstituteId == null || !claimedInstituteId.equals(instituteId)){
+                LOGGER.error("Forbidden Access, institute id >> " + instituteId +
+                        " | jwt >> " + claimedInstituteId);
+                return ResponseEntity.status(HttpStatus.CONFLICT).body(new HttpResponse<>()
+                        .responseFail(localeService.getMessage("user.forbidden", request)));
+            }
+
+            String claimedRole = claims.get(ApplicationConstant.JWT_ROLE, String.class);
+
+            UserRoleAuthoritiesBean roleAuthorities =userRoleAuthoritiesRepository
+                    .getEntityByRole(claimedRole, "get_all_users");
+
+            if(roleAuthorities == null) {
+                return ResponseEntity.status(HttpStatus.CONFLICT).body(new HttpResponse<>()
+                        .responseFail(localeService.getMessage("no.permission", request)));
+            }
+
+            userRepository.deleteById(id);
+
+            return ResponseEntity.ok().body(new HttpResponse<>()
+                    .responseOk(HttpStatus.OK));
+
+        } catch (LMSExceptions e) {
+            LOGGER.error(e.getMessage(), e);
+            return ResponseEntity.internalServerError()
+                    .body(new HttpResponse<>().responseFail(e.getMessage()));
+        }
+    }
+
     private UserBean updateBean(UserBean userBean, String name, String address, String phone,
                                 MultipartFile profileImageUrl){
 
