@@ -54,7 +54,17 @@ public class UserController {
 
     @PostMapping("/update")
     public ResponseEntity UpdateUser(Integer id, String name, String address, String phone,@RequestParam(value = "profileImageUrl", required = false)
-                                     MultipartFile profileImageUrl, HttpServletRequest request) throws AuthorizationException {
+                                     MultipartFile profileImageUrl, HttpServletRequest request) {
         return userService.update(id, name, address, phone, profileImageUrl, request);
+    }
+
+    @GetMapping(value = "/get-all/institute/{id}", name = "get-users-by-institute")
+    public ResponseEntity getAllUsers(@PathVariable("id") Integer id, HttpServletRequest request) {
+        return userService.getAllUsersByInstitute(id, request);
+    }
+
+    @DeleteMapping(value = "delete/{id}", name = "delete-user")
+    public ResponseEntity deleteUsers(@PathVariable("id") Integer id, HttpServletRequest request) {
+        return userService.deleteUser(id, request);
     }
 }
